@@ -1,3 +1,3 @@
 export interface IListeners {
-    listerners: any[];
+  listerners: any[]
 }

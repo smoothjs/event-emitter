@@ -1,54 +1,49 @@
 import { getMetadata, getMethods } from '@smoothjs/smooth'
-import { EventEmitter2 } from "eventemitter2";
-import { Container } from 'typescript-ioc';
-import { IListeners } from "./interfaces";
+import { EventEmitter2 } from 'eventemitter2'
+import { Container } from 'typescript-ioc'
+import { IListeners } from './interfaces'
 
 export class EventSubscribersLoader {
-    constructor (
-        private readonly app: IListeners,
-        private readonly eventEmitter: EventEmitter2
-    ) {}
+  constructor(private readonly app: IListeners, private readonly eventEmitter: EventEmitter2) {}
 
-    public loadEventListeners(): EventEmitter2 {
-        const listeners = this.app.listerners
+  public loadEventListeners(): EventEmitter2 {
+    const listeners = this.app.listerners
 
-        listeners.forEach((listener) => {
-            const methods = getMethods(listener)
+    listeners.forEach((listener) => {
+      const methods = getMethods(listener)
 
-            methods.forEach((method) => {
-                this.subscribeToEventIfListener(listener, method)
-            })
-        })
+      methods.forEach((method) => {
+        this.subscribeToEventIfListener(listener, method)
+      })
+    })
 
-        this.bindEventEmitterInstance()
+    this.bindEventEmitterInstance()
 
-        return Container.get(EventEmitter2)
+    return Container.get(EventEmitter2)
+  }
+
+  public shutdown() {
+    this.eventEmitter.removeAllListeners()
+  }
+
+  private subscribeToEventIfListener(instance: Record<string, any>, methodKey: string) {
+    const eventListenerMetadata =
+      getMetadata('EVENT_LISTENER_METADATA', instance, methodKey) || false
+
+    if (!eventListenerMetadata) {
+      return
     }
 
-    public shutdown() {
-        this.eventEmitter.removeAllListeners()
-    }
+    const { event, options } = eventListenerMetadata
 
-    private subscribeToEventIfListener(
-        instance: Record<string, any>,
-        methodKey: string
-    ) {
-        const eventListenerMetadata = getMetadata('EVENT_LISTENER_METADATA', instance, methodKey) || false
+    this.eventEmitter.on(
+      event,
+      (...args: unknown[]) => instance[methodKey].call(instance, ...args),
+      options
+    )
+  }
 
-        if (! eventListenerMetadata) {
-            return;
-        }
-
-        const { event, options } = eventListenerMetadata;
-
-        this.eventEmitter.on(
-            event,
-            (...args: unknown[]) => instance[methodKey].call(instance, ...args),
-            options,
-        );
-    }
-
-    private bindEventEmitterInstance() {
-        Container.bind(EventEmitter2).factory(() => this.eventEmitter)
-    }
+  private bindEventEmitterInstance() {
+    Container.bind(EventEmitter2).factory(() => this.eventEmitter)
+  }
 }
